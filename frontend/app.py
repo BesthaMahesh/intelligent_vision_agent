@@ -11,9 +11,9 @@ import pandas as pd
 from PIL import Image
 
 try:
-    from frontend.api_client import BackendClient
+    from frontend.api_client import BackendClient, get_default_backend_url
 except ImportError:
-    from api_client import BackendClient
+    from api_client import BackendClient, get_default_backend_url
 
 # -----------------------------------------------------------------------------
 # Page Configuration & Enterprise Styling
@@ -121,7 +121,7 @@ st.markdown("""
 # Session State Initialization
 # -----------------------------------------------------------------------------
 if "backend_url" not in st.session_state:
-    st.session_state.backend_url = os.getenv("BACKEND_API_URL", "http://localhost:8000")
+    st.session_state.backend_url = get_default_backend_url()
 
 if "auth_user" not in st.session_state:
     st.session_state.auth_user = None
@@ -167,10 +167,27 @@ if not st.session_state.auth_user:
                 unsafe_allow_html=True
             )
 
+            # Backend Connection Configuration
+            with st.expander("⚙️ Backend Server Connection", expanded=False):
+                current_url_input = st.text_input("Render Backend URL", value=st.session_state.backend_url, help="Set your live Render service URL (e.g. https://intelligent-vision-backend.onrender.com)")
+                if current_url_input.strip() and current_url_input.strip() != st.session_state.backend_url:
+                    st.session_state.backend_url = current_url_input.strip().rstrip("/")
+                    st.rerun()
+                
+                chk_col1, chk_col2 = st.columns([1, 1])
+                with chk_col1:
+                    if st.button("Check Backend Status", key="btn_check_health_login"):
+                        with st.spinner("Connecting to Render backend..."):
+                            is_ok, health_info = client.check_health()
+                            if is_ok:
+                                st.success(f"🟢 Connected! API v{health_info.get('version', '1.0.0')}")
+                            else:
+                                st.error(f"🔴 {health_info.get('error')}")
+
             # Check backend health indicator
             is_healthy, health_info = client.check_health()
             if not is_healthy:
-                st.warning(f"⚠️ Connecting to backend at `{st.session_state.backend_url}`. If Render service is spinning up from cold sleep, please allow 15-30 seconds.")
+                st.info(f"Connecting to `{st.session_state.backend_url}`. If the Render service was idle, it may take 20–30s to wake up.")
 
             if st.session_state.auth_mode == "login":
                 st.markdown('<h3 style="font-weight: 700; color: #0f172a; margin: 0 0 0.2rem 0; font-size: 1.25rem;">Sign In</h3>', unsafe_allow_html=True)

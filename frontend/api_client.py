@@ -1,21 +1,44 @@
 import os
 import io
+import json
 import base64
 import requests
 from typing import Dict, Any, Optional, Tuple
 from PIL import Image
 
+def get_default_backend_url() -> str:
+    """Detects backend URL from environment variables or Streamlit secrets."""
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets") and "BACKEND_API_URL" in st.secrets:
+            return str(st.secrets["BACKEND_API_URL"]).rstrip("/")
+    except Exception:
+        pass
+    return os.getenv("BACKEND_API_URL", "http://localhost:8000").rstrip("/")
+
 class BackendClient:
-    """HTTP Client for communicating with the Render FastAPI backend."""
+    """Robust HTTP Client for communicating with the Render FastAPI backend."""
     def __init__(self, base_url: Optional[str] = None):
-        self.base_url = (base_url or os.getenv("BACKEND_API_URL", "http://localhost:8000")).rstrip("/")
+        if base_url:
+            self.base_url = base_url.rstrip("/")
+        else:
+            self.base_url = get_default_backend_url()
+
+    def _safe_parse_json(self, res: requests.Response) -> Dict[str, Any]:
+        try:
+            return res.json()
+        except Exception:
+            return {"detail": res.text or f"HTTP {res.status_code} response received from server."}
 
     def check_health(self) -> Tuple[bool, Dict[str, Any]]:
         try:
-            res = requests.get(f"{self.base_url}/health", timeout=5)
+            res = requests.get(f"{self.base_url}/health", timeout=8)
             if res.status_code == 200:
-                return True, res.json()
-            return False, {"error": f"Status {res.status_code}"}
+                data = self._safe_parse_json(res)
+                return True, data
+            return False, {"error": f"Server returned HTTP {res.status_code}: {res.text[:100]}"}
+        except requests.exceptions.ConnectionError:
+            return False, {"error": f"Unable to reach {self.base_url}. Verify the backend URL or wait for Render cold-start."}
         except Exception as e:
             return False, {"error": str(e)}
 
@@ -24,12 +47,16 @@ class BackendClient:
             res = requests.post(
                 f"{self.base_url}/api/auth/login",
                 json={"email": email, "password": password},
-                timeout=10
+                timeout=15
             )
-            data = res.json()
+            data = self._safe_parse_json(res)
             if res.status_code == 200 and data.get("success"):
                 return True, data.get("user"), "Login successful"
-            return False, None, data.get("detail", "Invalid email or password.")
+            
+            error_msg = data.get("detail") or "Invalid email or password."
+            return False, None, error_msg
+        except requests.exceptions.ConnectionError:
+            return False, None, f"Cannot reach backend at {self.base_url}. If deployed on Render free tier, it may take 30s to wake from sleep."
         except Exception as e:
             return False, None, f"Connection error: {str(e)}"
 
@@ -44,12 +71,16 @@ class BackendClient:
                     "organization": organization,
                     "role": role
                 },
-                timeout=10
+                timeout=15
             )
-            data = res.json()
+            data = self._safe_parse_json(res)
             if res.status_code == 200 and data.get("success"):
                 return True, data.get("user"), "Registration successful"
-            return False, None, data.get("detail", "Registration failed.")
+            
+            error_msg = data.get("detail") or "Registration failed."
+            return False, None, error_msg
+        except requests.exceptions.ConnectionError:
+            return False, None, f"Cannot reach backend at {self.base_url}. If deployed on Render free tier, it may take 30s to wake from sleep."
         except Exception as e:
             return False, None, f"Connection error: {str(e)}"
 
@@ -68,15 +99,20 @@ class BackendClient:
                 "return_annotated_image": "true"
             }
 
-            res = requests.post(f"{self.base_url}/api/detect", files=files, data=data, timeout=30)
+            res = requests.post(f"{self.base_url}/api/detect", files=files, data=data, timeout=45)
+            data_json = self._safe_parse_json(res)
+
             if res.status_code == 200:
-                resp_json = res.json()
                 annotated_img = None
-                if "annotated_image_base64" in resp_json:
-                    img_data = base64.b64decode(resp_json["annotated_image_base64"])
+                if "annotated_image_base64" in data_json:
+                    img_data = base64.b64decode(data_json["annotated_image_base64"])
                     annotated_img = Image.open(io.BytesIO(img_data))
-                return True, resp_json, annotated_img, "Success"
-            return False, None, None, f"Detection failed: {res.text}"
+                return True, data_json, annotated_img, "Success"
+            
+            err = data_json.get("detail", f"Detection failed with HTTP {res.status_code}")
+            return False, None, None, err
+        except requests.exceptions.ConnectionError:
+            return False, None, None, f"Cannot reach backend at {self.base_url}."
         except Exception as e:
             return False, None, None, f"Connection error: {str(e)}"
 
@@ -91,12 +127,16 @@ class BackendClient:
                     "provider": provider,
                     "model": model
                 },
-                timeout=30
+                timeout=45
             )
-            data = res.json()
+            data = self._safe_parse_json(res)
             if res.status_code == 200 and data.get("success"):
                 return True, data.get("response", ""), data.get("latency_ms", 0.0)
-            return False, data.get("detail", "Error contacting AI agent"), 0.0
+            
+            err = data.get("detail", "Error contacting AI agent")
+            return False, err, 0.0
+        except requests.exceptions.ConnectionError:
+            return False, f"Cannot reach backend at {self.base_url}.", 0.0
         except Exception as e:
             return False, f"Connection error: {str(e)}", 0.0
 
@@ -110,9 +150,13 @@ class BackendClient:
                 },
                 timeout=60
             )
-            data = res.json()
+            data = self._safe_parse_json(res)
             if res.status_code == 200 and data.get("success"):
                 return True, data.get("report"), "Success"
-            return False, None, data.get("detail", "Evaluation failed.")
+            
+            err = data.get("detail", "Evaluation failed.")
+            return False, None, err
+        except requests.exceptions.ConnectionError:
+            return False, None, f"Cannot reach backend at {self.base_url}."
         except Exception as e:
             return False, None, f"Connection error: {str(e)}"
