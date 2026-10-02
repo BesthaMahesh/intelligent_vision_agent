@@ -1,0 +1,107 @@
+{
+  "sample_street_traffic.jpg": [
+    {
+      "label": "car",
+      "bbox": [
+        120,
+        300,
+        360,
+        510
+      ]
+    },
+    {
+      "label": "car",
+      "bbox": [
+        460,
+        290,
+        700,
+        500
+      ]
+    },
+    {
+      "label": "person",
+      "bbox": [
+        390,
+        280,
+        420,
+        470
+      ]
+    },
+    {
+      "label": "person",
+      "bbox": [
+        40,
+        290,
+        70,
+        470
+      ]
+    }
+  ],
+  "sample_office_desk.jpg": [
+    {
+      "label": "laptop",
+      "bbox": [
+        220,
+        240,
+        580,
+        470
+      ]
+    },
+    {
+      "label": "cup",
+      "bbox": [
+        140,
+        340,
+        200,
+        400
+      ]
+    },
+    {
+      "label": "bottle",
+      "bbox": [
+        640,
+        230,
+        700,
+        460
+      ]
+    },
+    {
+      "label": "cell phone",
+      "bbox": [
+        130,
+        440,
+        210,
+        540
+      ]
+    }
+  ],
+  "sample_living_room.jpg": [
+    {
+      "label": "couch",
+      "bbox": [
+        80,
+        250,
+        520,
+        460
+      ]
+    },
+    {
+      "label": "dog",
+      "bbox": [
+        570,
+        340,
+        695,
+        480
+      ]
+    },
+    {
+      "label": "potted plant",
+      "bbox": [
+        650,
+        120,
+        770,
+        320
+      ]
+    }
+  ]
+}
