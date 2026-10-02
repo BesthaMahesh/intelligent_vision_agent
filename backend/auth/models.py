@@ -14,6 +14,11 @@ class User(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     last_login: Optional[str] = Field(default=None)
 
+    def to_dict(self) -> dict:
+        data = self.model_dump()
+        data.pop("password_hash", None)
+        return data
+
 
 class UserProfile(BaseModel):
     id: str
@@ -23,6 +28,9 @@ class UserProfile(BaseModel):
     role: str
     created_at: str
     last_login: Optional[str]
+
+    def to_dict(self) -> dict:
+        return self.model_dump()
 
 
 class AuthSession(BaseModel):
@@ -35,3 +43,6 @@ class AuthSession(BaseModel):
     login_time: str
     last_activity_time: str
     is_authenticated: bool = True
+
+    def to_dict(self) -> dict:
+        return self.model_dump()
