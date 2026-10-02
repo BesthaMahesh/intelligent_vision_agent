@@ -12,7 +12,9 @@ import streamlit as st
 from PIL import Image
 
 # Ensure root directory is on PYTHONPATH
-ROOT_DIR = Path(__file__).parent.resolve()
+CURRENT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = CURRENT_DIR.parent if CURRENT_DIR.name == "frontend" else CURRENT_DIR
+
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
