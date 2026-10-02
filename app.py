@@ -328,7 +328,7 @@ if st.session_state.auth_session is None:
                     reg_name = st.text_input("Full name", placeholder="e.g. Jane Smith")
                     reg_email = st.text_input("Email address", placeholder="name@company.com")
                     reg_org = st.text_input("Organization (Optional)", placeholder="Company / Team name")
-                    reg_password = st.text_input("Password", type="password", placeholder="At least 8 characters")
+                    reg_password = st.text_input("Password", type="password", placeholder="At least 6 characters")
                     reg_confirm = st.text_input("Confirm password", type="password", placeholder="Re-enter password")
                     submit_reg = st.form_submit_button("Create Account", type="primary", use_container_width=True)
 
