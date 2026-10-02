@@ -295,6 +295,18 @@ auth_service = get_auth_service()
 session_manager = get_session_manager()
 detector = load_detector()
 
+nav_options = [
+    "Dashboard",
+    "Image Analysis",
+    "AI Assistant",
+    "Analysis History",
+    "Detection Insights",
+    "AI Performance",
+    "Reports",
+    "Account Settings",
+    "System Status",
+    "Help & Support"
+]
 
 # Initialize Session States
 if "auth_session" not in st.session_state:
@@ -302,7 +314,13 @@ if "auth_session" not in st.session_state:
 if "auth_mode" not in st.session_state:
     st.session_state.auth_mode = "login"  # "login", "register", "register_success", "forgot_password"
 if "selected_nav" not in st.session_state:
-    st.session_state.selected_nav = "Image Analysis"
+    st.session_state.selected_nav = "Dashboard"
+if "sidebar_nav" not in st.session_state:
+    st.session_state.sidebar_nav = st.session_state.selected_nav
+if "top_quick_nav" not in st.session_state:
+    st.session_state.top_quick_nav = st.session_state.selected_nav
+if "active_user_query" not in st.session_state:
+    st.session_state.active_user_query = ""
 if "history" not in st.session_state:
     st.session_state.history = []
 if "current_image_bytes" not in st.session_state:
@@ -319,6 +337,26 @@ if "qa_chat_history" not in st.session_state:
     st.session_state.qa_chat_history = []
 if "eval_report" not in st.session_state:
     st.session_state.eval_report = None
+
+
+def set_page(page_name: str):
+    """Safely transitions active view across all synced navigation controls."""
+    if page_name in nav_options:
+        st.session_state.selected_nav = page_name
+        st.session_state.sidebar_nav = page_name
+        st.session_state.top_quick_nav = page_name
+
+
+def on_sidebar_nav_change():
+    """Callback triggered when sidebar navigation option changes."""
+    st.session_state.selected_nav = st.session_state.sidebar_nav
+    st.session_state.top_quick_nav = st.session_state.sidebar_nav
+
+
+def on_top_nav_change():
+    """Callback triggered when top quick navigation selectbox changes."""
+    st.session_state.selected_nav = st.session_state.top_quick_nav
+    st.session_state.sidebar_nav = st.session_state.top_quick_nav
 
 
 # Check Session Timeout
@@ -496,19 +534,6 @@ if st.session_state.auth_session is None:
 # ==============================================================================
 current_user = st.session_state.auth_session
 
-nav_options = [
-    "Dashboard",
-    "Image Analysis",
-    "AI Assistant",
-    "Analysis History",
-    "Detection Insights",
-    "AI Performance",
-    "Reports",
-    "Account Settings",
-    "System Status",
-    "Help & Support"
-]
-
 # Top Navigation Bar & Sidebar
 with st.sidebar:
     st.markdown(
@@ -521,16 +546,17 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-section">WORKSPACE</div>', unsafe_allow_html=True)
     
-    current_nav_idx = nav_options.index(st.session_state.selected_nav) if st.session_state.selected_nav in nav_options else 1
-    selected_sidebar_nav = st.radio(
+    # Synchronize sidebar widget key before rendering
+    if st.session_state.get("sidebar_nav") != st.session_state.selected_nav:
+        st.session_state.sidebar_nav = st.session_state.selected_nav
+
+    st.radio(
         "Navigation",
         options=nav_options,
-        index=current_nav_idx,
-        label_visibility="collapsed",
-        key="sidebar_nav"
+        key="sidebar_nav",
+        on_change=on_sidebar_nav_change,
+        label_visibility="collapsed"
     )
-    if selected_sidebar_nav != st.session_state.selected_nav:
-        st.session_state.selected_nav = selected_sidebar_nav
 
     st.markdown('<div class="sidebar-section">PREFERENCES</div>', unsafe_allow_html=True)
     
@@ -659,16 +685,17 @@ with st.container():
     with col_mob_label:
         st.markdown(f'<div style="display: flex; align-items: center; height: 100%; font-size: 0.85rem; font-weight: 700; color: #2563eb; padding-top: 6px;"><span class="status-pill status-accent">📍 Active View:</span></div>', unsafe_allow_html=True)
     with col_mob_nav:
-        top_nav_choice = st.selectbox(
+        # Synchronize top_quick_nav key before rendering
+        if st.session_state.get("top_quick_nav") != st.session_state.selected_nav:
+            st.session_state.top_quick_nav = st.session_state.selected_nav
+
+        st.selectbox(
             "Quick Navigation",
             options=nav_options,
-            index=nav_options.index(st.session_state.selected_nav) if st.session_state.selected_nav in nav_options else 1,
-            label_visibility="collapsed",
-            key="top_quick_nav"
+            key="top_quick_nav",
+            on_change=on_top_nav_change,
+            label_visibility="collapsed"
         )
-        if top_nav_choice != st.session_state.selected_nav:
-            st.session_state.selected_nav = top_nav_choice
-            st.rerun()
 
 selected_nav = st.session_state.selected_nav
 
@@ -704,6 +731,26 @@ if selected_nav == "Dashboard":
     
     col_dash_left, col_dash_right = st.columns([2, 1])
     with col_dash_left:
+        st.markdown("#### Quick Launch")
+        q_btn1, q_btn2, q_btn3, q_btn4 = st.columns(4)
+        with q_btn1:
+            if st.button("🔍 Image Analysis", key="dash_btn_analysis", type="primary", use_container_width=True):
+                set_page("Image Analysis")
+                st.rerun()
+        with q_btn2:
+            if st.button("💬 AI Assistant", key="dash_btn_assistant", use_container_width=True):
+                set_page("AI Assistant")
+                st.rerun()
+        with q_btn3:
+            if st.button("📜 Analysis History", key="dash_btn_history", use_container_width=True):
+                set_page("Analysis History")
+                st.rerun()
+        with q_btn4:
+            if st.button("📊 Performance", key="dash_btn_perf", use_container_width=True):
+                set_page("AI Performance")
+                st.rerun()
+
+        st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("#### Recent Analysis Activity")
         if st.session_state.history:
             recent_rows = []
@@ -719,7 +766,10 @@ if selected_nav == "Dashboard":
                 })
             st.dataframe(pd.DataFrame(recent_rows), use_container_width=True)
         else:
-            st.info("No analysis activity yet. Navigate to **Image Analysis** to process your first image.")
+            st.info("No analysis activity yet. Click below to process your first image.")
+            if st.button("🚀 Analyze First Image", key="dash_btn_first_analysis", type="primary"):
+                set_page("Image Analysis")
+                st.rerun()
 
     with col_dash_right:
         st.markdown("#### System Overview")
@@ -841,6 +891,7 @@ elif selected_nav == "Image Analysis":
                         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         "source": source_name,
                         "pil_img": pil_img,
+                        "raw_bytes": raw_image_bytes,
                         "annotated_rgb": annotated_rgb,
                         "detection_res": detection_res,
                         "scene_description": None,
@@ -931,7 +982,7 @@ elif selected_nav == "Image Analysis":
             vision_agent = VisionSceneAgent(llm_provider=llm_inst)
             qa_agent = VisualQAAgent(llm_provider=llm_inst)
 
-            if st.button("✨ Generate AI Insight", type="secondary", use_container_width=True):
+            if st.button("✨ Generate AI Insight", key="btn_gen_scene_insight", type="secondary", use_container_width=True):
                 with st.spinner("Generating intelligent visual insight..."):
                     desc, latency, grounded, warnings = vision_agent.describe_scene(
                         detection_result=detection_res,
@@ -960,23 +1011,26 @@ elif selected_nav == "Image Analysis":
 
             st.caption("Suggested inquiries:")
             sq_col1, sq_col2, sq_col3, sq_col4 = st.columns(4)
-            chosen_q = ""
-            if sq_col1.button("How many objects are visible?", use_container_width=True):
-                chosen_q = "How many objects are visible?"
-            if sq_col2.button("Which object has highest certainty?", use_container_width=True):
-                chosen_q = "Which object has the highest confidence score?"
-            if sq_col3.button("Summarize this image.", use_container_width=True):
-                chosen_q = "Summarize the objects and layout of this image."
-            if sq_col4.button("Are there vehicles or people?", use_container_width=True):
-                chosen_q = "Are there vehicles or people detected in the image?"
+            if sq_col1.button("How many objects are visible?", key="btn_sq_1", use_container_width=True):
+                st.session_state.active_user_query = "How many objects are visible?"
+                st.rerun()
+            if sq_col2.button("Which object has highest certainty?", key="btn_sq_2", use_container_width=True):
+                st.session_state.active_user_query = "Which object has the highest confidence score?"
+                st.rerun()
+            if sq_col3.button("Summarize this image.", key="btn_sq_3", use_container_width=True):
+                st.session_state.active_user_query = "Summarize the objects and layout of this image."
+                st.rerun()
+            if sq_col4.button("Are there vehicles or people?", key="btn_sq_4", use_container_width=True):
+                st.session_state.active_user_query = "Are there vehicles or people detected in the image?"
+                st.rerun()
 
             user_query = st.text_input(
                 "Ask a question about the image:",
-                value=chosen_q,
+                key="active_user_query",
                 placeholder="e.g. How many people are in the scene? Where are they positioned?",
             )
 
-            if st.button("Ask AI", type="primary", use_container_width=True):
+            if st.button("Ask AI", key="btn_ask_ai_inline", type="primary", use_container_width=True):
                 if user_query.strip():
                     with st.spinner("Analyzing inquiry against verified detection context..."):
                         qa_res: QAResponse = qa_agent.answer_question(
@@ -1016,6 +1070,41 @@ elif selected_nav == "Image Analysis":
                     ]
                     st.dataframe(pd.DataFrame(raw_boxes), use_container_width=True)
 
+    elif st.session_state.current_detection is not None and st.session_state.current_pil_img is not None:
+        # User loaded an image analysis from history or previous action
+        st.info("Displaying previously loaded analysis from active workspace session.")
+        detection_res = st.session_state.current_detection
+        annotated_rgb = st.session_state.current_annotated_rgb
+        pil_img = st.session_state.current_pil_img
+
+        col_img1, col_img2 = st.columns(2)
+        with col_img1:
+            st.markdown("##### Loaded Image")
+            st.image(pil_img, use_container_width=True)
+        with col_img2:
+            st.markdown("##### Detected Objects")
+            st.image(annotated_rgb, use_container_width=True)
+
+        st.markdown("#### Analysis Results")
+        kpi_c1, kpi_c2, kpi_c3, kpi_c4 = st.columns(4)
+        with kpi_c1:
+            st.markdown(f'<div class="ent-card"><div class="ent-metric-val">{detection_res.summary.total_objects}</div><div class="ent-metric-label">Objects Identified</div><div class="ent-metric-sub">Total recognized entities</div></div>', unsafe_allow_html=True)
+        with kpi_c2:
+            st.markdown(f'<div class="ent-card"><div class="ent-metric-val">{detection_res.summary.unique_classes_count}</div><div class="ent-metric-label">Object Types</div><div class="ent-metric-sub">Distinct categories</div></div>', unsafe_allow_html=True)
+        with kpi_c3:
+            avg_c = f"{detection_res.summary.average_confidence * 100:.1f}%" if detection_res.summary.total_objects > 0 else "0.0%"
+            st.markdown(f'<div class="ent-card"><div class="ent-metric-val">{avg_c}</div><div class="ent-metric-label">Confidence ℹ️</div><div class="ent-metric-sub">Mean certainty score</div></div>', unsafe_allow_html=True)
+        with kpi_c4:
+            st.markdown(f'<div class="ent-card"><div class="ent-metric-val">{detection_res.metrics.total_vision_ms:.0f} <span style="font-size:1rem;">ms</span></div><div class="ent-metric-label">Analysis Time</div><div class="ent-metric-sub">Total processing latency</div></div>', unsafe_allow_html=True)
+
+        if st.session_state.scene_description:
+            st.markdown(
+                f'<div class="insight-card" style="margin-top: 1rem;">'
+                f'<strong style="color: #0f172a; font-size: 1.05rem;">AI Visual Insight</strong><br><br>'
+                f'{st.session_state.scene_description}'
+                f'</div>',
+                unsafe_allow_html=True
+            )
     else:
         st.info("Please choose an image source above to begin analysis.")
 
@@ -1049,23 +1138,35 @@ elif selected_nav == "AI Assistant":
             )
 
         user_chat_input = st.text_input("Enter your question:", placeholder="e.g. What is the spatial relationship between the detected objects?")
-        if st.button("Send Inquiry", type="primary", use_container_width=True):
-            if user_chat_input.strip():
-                with st.spinner("Formulating grounded response..."):
-                    qa_res = qa_agent.answer_question(
-                        question=user_chat_input,
-                        detection_result=st.session_state.current_detection,
-                        image_bytes=st.session_state.current_image_bytes,
-                        use_vision_model=enable_vision_multimodal if 'enable_vision_multimodal' in locals() else True,
-                    )
-                    st.session_state.qa_chat_history.append({
-                        "question": user_chat_input,
-                        "answer": qa_res.answer,
-                        "timestamp": datetime.now().strftime("%H:%M:%S"),
-                    })
+        col_send, col_clear_chat = st.columns([3, 1])
+        with col_send:
+            if st.button("Send Inquiry", key="btn_send_inquiry", type="primary", use_container_width=True):
+                if user_chat_input.strip():
+                    with st.spinner("Formulating grounded response..."):
+                        qa_res = qa_agent.answer_question(
+                            question=user_chat_input,
+                            detection_result=st.session_state.current_detection,
+                            image_bytes=st.session_state.current_image_bytes,
+                            use_vision_model=enable_vision_multimodal if 'enable_vision_multimodal' in locals() else True,
+                        )
+                        st.session_state.qa_chat_history.append({
+                            "question": user_chat_input,
+                            "answer": qa_res.answer,
+                            "timestamp": datetime.now().strftime("%H:%M:%S"),
+                        })
+                        st.rerun()
+                else:
+                    st.warning("Please enter a question.")
+        with col_clear_chat:
+            if st.session_state.qa_chat_history:
+                if st.button("Clear Chat", key="btn_clear_qa_chat", type="secondary", use_container_width=True):
+                    st.session_state.qa_chat_history = []
                     st.rerun()
     else:
         st.info("No active image in memory. Please complete an **Image Analysis** first to converse with the AI Assistant.")
+        if st.button("🚀 Go to Image Analysis", key="btn_assistant_to_analysis", type="primary"):
+            set_page("Image Analysis")
+            st.rerun()
 
 
 # ==============================================================================
@@ -1076,6 +1177,16 @@ elif selected_nav == "Analysis History":
     st.markdown("Review and inspect previous image analyses recorded during this session.")
 
     if st.session_state.history:
+        col_hist_title, col_hist_clear = st.columns([3, 1])
+        with col_hist_title:
+            st.caption(f"Showing **{len(st.session_state.history)}** recorded analyses in this session.")
+        with col_hist_clear:
+            if st.button("🗑️ Clear History", key="btn_clear_history", type="secondary", use_container_width=True):
+                st.session_state.history = []
+                st.rerun()
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
         for idx, item in enumerate(reversed(st.session_state.history)):
             with st.container():
                 st.markdown(
@@ -1095,16 +1206,20 @@ elif selected_nav == "Analysis History":
                     else:
                         st.caption("No AI summary generated for this analysis.")
 
-                    if st.button(f"Load Analysis #{item['id']} into Active Workspace", key=f"btn_load_{item['id']}", use_container_width=True):
-                        st.session_state.current_image_bytes = None
+                    if st.button(f"Load Analysis #{item['id']} into Active Workspace", key=f"btn_load_{item['id']}", type="primary", use_container_width=True):
+                        st.session_state.current_image_bytes = item.get("raw_bytes")
                         st.session_state.current_detection = item["detection_res"]
                         st.session_state.current_annotated_rgb = item["annotated_rgb"]
                         st.session_state.current_pil_img = item["pil_img"]
                         st.session_state.scene_description = item.get("scene_description")
-                        st.success(f"Analysis #{item['id']} loaded into active workspace!")
+                        set_page("Image Analysis")
+                        st.rerun()
                 st.markdown("---")
     else:
-        st.info("No previous analyses available yet in this session.")
+        st.info("No previous analyses recorded in this session. Analyze an image to populate your history.")
+        if st.button("🚀 Start Image Analysis", key="btn_hist_to_analysis", type="primary"):
+            set_page("Image Analysis")
+            st.rerun()
 
 
 # ==============================================================================
@@ -1147,6 +1262,9 @@ elif selected_nav == "Detection Insights":
             st.bar_chart(tier_df.set_index("Certainty Tier"), color="#059669", use_container_width=True)
     else:
         st.info("No analysis data available yet. Process images to generate aggregated category insights.")
+        if st.button("🚀 Analyze Images Now", key="btn_ins_to_analysis", type="primary"):
+            set_page("Image Analysis")
+            st.rerun()
 
 
 # ==============================================================================
@@ -1170,7 +1288,7 @@ elif selected_nav == "AI Performance":
     with col_perf_top:
         st.markdown(f"**Benchmark Dataset:** `{len(test_files)} verified test images` | **Ground Truth Available:** `{'Yes' if ground_truth_data else 'No'}`")
     with col_perf_btn:
-        run_eval_clicked = st.button("Run Benchmark Evaluation", type="primary", use_container_width=True)
+        run_eval_clicked = st.button("Run Benchmark Evaluation", key="btn_run_benchmarks", type="primary", use_container_width=True)
 
     if run_eval_clicked or st.session_state.eval_report is not None:
         if run_eval_clicked:
@@ -1241,10 +1359,14 @@ elif selected_nav == "Reports":
             data=csv,
             file_name=f"vision_analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv",
+            key="btn_download_report_csv",
             use_container_width=True,
         )
     else:
         st.info("No report data generated yet. Complete image analyses to generate audit reports.")
+        if st.button("🚀 Start Image Analysis", key="btn_rep_to_analysis", type="primary"):
+            set_page("Image Analysis")
+            st.rerun()
 
 
 # ==============================================================================
@@ -1329,6 +1451,23 @@ elif selected_nav == "Help & Support":
     3. **Generate AI Insight**: Click to generate natural-language scene summaries.
     4. **Inquire with AI Assistant**: Ask questions regarding counts, spatial layouts, or specific entities.
 
+    #### Quick Jump
+    """)
+    hj_c1, hj_c2, hj_c3 = st.columns(3)
+    with hj_c1:
+        if st.button("🚀 Go to Image Analysis", key="btn_help_to_analysis", type="primary", use_container_width=True):
+            set_page("Image Analysis")
+            st.rerun()
+    with hj_c2:
+        if st.button("💬 Open AI Assistant", key="btn_help_to_assistant", use_container_width=True):
+            set_page("AI Assistant")
+            st.rerun()
+    with hj_c3:
+        if st.button("📊 View Dashboard", key="btn_help_to_dash", use_container_width=True):
+            set_page("Dashboard")
+            st.rerun()
+
+    st.markdown("""
     #### Image Format Recommendations
     - Supported formats: **JPEG, PNG, WebP**.
     - Maximum file size: **15 MB**.
