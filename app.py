@@ -33,36 +33,48 @@ from backend.observability.logger import get_logger, LOG_PATH
 log = get_logger("StreamlitApp")
 settings = get_settings()
 
-# Page Configuration
+# Page Configuration - Auto sidebar state for mobile-friendly initial view
 st.set_page_config(
     page_title="Intelligent Vision | Enterprise AI Platform",
     page_icon="👁️",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
 
-# Enterprise UI Custom Styling
+# Enterprise UI Custom Styling with Comprehensive Mobile Responsiveness
 st.markdown("""<style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 html, body, [class*="css"] {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     color: #1e293b;
+    -webkit-tap-highlight-color: transparent;
 }
 
+/* Base Responsive Page Container */
+.main .block-container {
+    padding-top: clamp(1rem, 2.5vw, 2rem) !important;
+    padding-bottom: clamp(1.5rem, 3.5vw, 3rem) !important;
+    padding-left: clamp(0.75rem, 2.5vw, 2rem) !important;
+    padding-right: clamp(0.75rem, 2.5vw, 2rem) !important;
+    max-width: 100% !important;
+}
+
+/* Responsive Brand Header */
 .brand-container {
-    padding: 0.5rem 0 1rem 0;
+    padding: 0.5rem 0 0.85rem 0;
     border-bottom: 1px solid #e2e8f0;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
 }
 .brand-title {
-    font-size: 1.75rem;
+    font-size: clamp(1.25rem, 3.5vw, 1.85rem);
     font-weight: 800;
     color: #0f172a;
     letter-spacing: -0.025em;
     margin: 0;
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 0.5rem;
 }
 .brand-badge {
@@ -75,26 +87,49 @@ html, body, [class*="css"] {
     border: 1px solid #bfdbfe;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    display: inline-flex;
+    align-items: center;
 }
 .brand-subtitle {
     color: #64748b;
-    font-size: 0.90rem;
+    font-size: clamp(0.78rem, 2vw, 0.90rem);
     font-weight: 400;
     margin-top: 0.2rem;
+    line-height: 1.4;
 }
 
+/* Mobile Quick Navigation Bar */
+.mobile-nav-bar {
+    display: flex;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 1.25rem;
+    gap: 0.5rem;
+}
+
+/* Step Tracker with Momentum Scrolling */
 .step-tracker {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
     background: #f8fafc;
-    padding: 0.65rem 1rem;
+    padding: 0.65rem 0.85rem;
     border-radius: 8px;
     border: 1px solid #e2e8f0;
     margin-bottom: 1.25rem;
-    font-size: 0.85rem;
+    font-size: clamp(0.72rem, 1.8vw, 0.85rem);
     color: #64748b;
     font-weight: 500;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.step-tracker::-webkit-scrollbar {
+    display: none;
 }
 .step-item.active {
     color: #2563eb;
@@ -104,22 +139,24 @@ html, body, [class*="css"] {
     color: #cbd5e1;
 }
 
+/* Enterprise Cards & Touch Targets */
 .ent-card {
     background-color: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 10px;
-    padding: 1rem;
+    padding: clamp(0.75rem, 2vw, 1rem);
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
     height: 100%;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .ent-metric-val {
-    font-size: 1.65rem;
+    font-size: clamp(1.3rem, 3.2vw, 1.65rem);
     font-weight: 700;
     color: #0f172a;
     line-height: 1.2;
 }
 .ent-metric-label {
-    font-size: 0.75rem;
+    font-size: clamp(0.68rem, 1.8vw, 0.75rem);
     font-weight: 600;
     color: #64748b;
     text-transform: uppercase;
@@ -127,19 +164,20 @@ html, body, [class*="css"] {
     margin-top: 0.25rem;
 }
 .ent-metric-sub {
-    font-size: 0.70rem;
+    font-size: clamp(0.65rem, 1.6vw, 0.70rem);
     color: #94a3b8;
     margin-top: 0.2rem;
 }
 
+/* Insight Cards */
 .insight-card {
     background: #f8fafc;
     border-left: 4px solid #2563eb;
     border-radius: 0 8px 8px 0;
-    padding: 1rem 1.25rem;
+    padding: clamp(0.75rem, 2vw, 1.25rem);
     margin: 0.75rem 0;
     color: #1e293b;
-    font-size: 0.95rem;
+    font-size: clamp(0.85rem, 2vw, 0.95rem);
     line-height: 1.5;
 }
 .insight-disclaimer {
@@ -151,6 +189,7 @@ html, body, [class*="css"] {
     padding-top: 0.4rem;
 }
 
+/* Status Pills */
 .status-pill {
     display: inline-flex;
     align-items: center;
@@ -180,6 +219,61 @@ html, body, [class*="css"] {
     margin-top: 1rem;
     margin-bottom: 0.3rem;
 }
+
+/* Touch & Mobile Controls */
+.stButton > button {
+    min-height: 44px;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.15s ease;
+}
+.stButton > button:active {
+    transform: scale(0.98);
+}
+input, select, textarea {
+    font-size: 16px !important; /* Prevents auto-zoom on iOS mobile browsers */
+}
+
+/* Mobile Responsive Layout & Stacking Rules */
+@media screen and (max-width: 768px) {
+    div[data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
+        gap: 0.6rem !important;
+    }
+    div[data-testid="column"] {
+        min-width: 100% !important;
+        flex: 1 1 100% !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+    .brand-title {
+        font-size: 1.3rem !important;
+    }
+    .brand-subtitle {
+        font-size: 0.82rem !important;
+    }
+    .ent-card {
+        margin-bottom: 0.25rem !important;
+        padding: 0.75rem !important;
+    }
+    div[data-testid="stCameraInput"] {
+        width: 100% !important;
+    }
+    div[data-testid="stDataFrame"] {
+        width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .brand-title {
+        font-size: 1.15rem !important;
+    }
+    .ent-metric-val {
+        font-size: 1.3rem !important;
+    }
+}
 </style>""", unsafe_allow_html=True)
 
 
@@ -207,6 +301,8 @@ if "auth_session" not in st.session_state:
     st.session_state.auth_session = None
 if "auth_mode" not in st.session_state:
     st.session_state.auth_mode = "login"  # "login", "register", "register_success", "forgot_password"
+if "selected_nav" not in st.session_state:
+    st.session_state.selected_nav = "Image Analysis"
 if "history" not in st.session_state:
     st.session_state.history = []
 if "current_image_bytes" not in st.session_state:
@@ -249,21 +345,21 @@ def get_llm_instance(provider_name: str, model_name: str, api_key: Optional[str]
 # VIEW 1: AUTHENTICATION GATEWAY (LOGIN / REGISTER / FORGOT PASSWORD)
 # ==============================================================================
 if st.session_state.auth_session is None:
-    # Centered container layout
+    # Centered container layout for desktop, expands fluidly on mobile
     _, col_center, _ = st.columns([1, 2.5, 1])
 
     with col_center:
         # Centered Brand Header
         st.markdown(
             '<div style="text-align: center; margin-bottom: 1.5rem;">'
-            '<h1 style="font-weight: 800; color: #0f172a; margin: 0 0 0.25rem 0; font-size: 2.2rem; letter-spacing: -0.03em;">INTELLIGENT VISION</h1>'
+            '<h1 style="font-weight: 800; color: #0f172a; margin: 0 0 0.25rem 0; font-size: clamp(1.5rem, 5vw, 2.2rem); letter-spacing: -0.03em;">INTELLIGENT VISION</h1>'
             '<span style="font-size: 0.80rem; font-weight: 700; color: #2563eb; text-transform: uppercase; letter-spacing: 0.08em; background: #eff6ff; padding: 4px 12px; border-radius: 9999px; border: 1px solid #bfdbfe;">Enterprise AI Platform</span>'
             '<p style="color: #64748b; font-size: 0.95rem; margin: 0.75rem 0 0 0;">Transform visual assets into actionable visual insights with grounded computer vision and intelligent AI reasoning.</p>'
             '</div>',
             unsafe_allow_html=True
         )
 
-        # 3 Key Feature Summary Cards
+        # 3 Key Feature Summary Cards (responsive grid)
         feat_c1, feat_c2, feat_c3 = st.columns(3)
         with feat_c1:
             with st.container(border=True):
@@ -310,7 +406,7 @@ if st.session_state.auth_session is None:
                 st.markdown("<hr style='margin: 0.75rem 0; border: none; border-top: 1px solid #f1f5f9;'>", unsafe_allow_html=True)
                 col_forgot, col_reg = st.columns([1, 1])
                 with col_forgot:
-                    if st.button("Forgot password?", key="btn_to_forgot"):
+                    if st.button("Forgot password?", key="btn_to_forgot", use_container_width=True):
                         st.session_state.auth_mode = "forgot_password"
                         st.rerun()
                 with col_reg:
@@ -391,8 +487,6 @@ if st.session_state.auth_session is None:
                         st.session_state.auth_mode = "login"
                         st.rerun()
 
-
-
     # Stop rendering remainder of application when unauthenticated
     st.stop()
 
@@ -401,6 +495,19 @@ if st.session_state.auth_session is None:
 # VIEW 2: AUTHENTICATED ENTERPRISE WORKSPACE
 # ==============================================================================
 current_user = st.session_state.auth_session
+
+nav_options = [
+    "Dashboard",
+    "Image Analysis",
+    "AI Assistant",
+    "Analysis History",
+    "Detection Insights",
+    "AI Performance",
+    "Reports",
+    "Account Settings",
+    "System Status",
+    "Help & Support"
+]
 
 # Top Navigation Bar & Sidebar
 with st.sidebar:
@@ -413,25 +520,17 @@ with st.sidebar:
     )
 
     st.markdown('<div class="sidebar-section">WORKSPACE</div>', unsafe_allow_html=True)
-    nav_options = [
-        "Dashboard",
-        "Image Analysis",
-        "AI Assistant",
-        "Analysis History",
-        "Detection Insights",
-        "AI Performance",
-        "Reports",
-        "Account Settings",
-        "System Status",
-        "Help & Support"
-    ]
     
-    selected_nav = st.radio(
+    current_nav_idx = nav_options.index(st.session_state.selected_nav) if st.session_state.selected_nav in nav_options else 1
+    selected_sidebar_nav = st.radio(
         "Navigation",
         options=nav_options,
-        index=1,  # Default to Image Analysis
-        label_visibility="collapsed"
+        index=current_nav_idx,
+        label_visibility="collapsed",
+        key="sidebar_nav"
     )
+    if selected_sidebar_nav != st.session_state.selected_nav:
+        st.session_state.selected_nav = selected_sidebar_nav
 
     st.markdown('<div class="sidebar-section">PREFERENCES</div>', unsafe_allow_html=True)
     
@@ -554,6 +653,25 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# Mobile Quick-Navigation Selector (Quick switch right from header without needing sidebar)
+with st.container():
+    col_mob_label, col_mob_nav = st.columns([1, 2.5])
+    with col_mob_label:
+        st.markdown(f'<div style="display: flex; align-items: center; height: 100%; font-size: 0.85rem; font-weight: 700; color: #2563eb; padding-top: 6px;"><span class="status-pill status-accent">📍 Active View:</span></div>', unsafe_allow_html=True)
+    with col_mob_nav:
+        top_nav_choice = st.selectbox(
+            "Quick Navigation",
+            options=nav_options,
+            index=nav_options.index(st.session_state.selected_nav) if st.session_state.selected_nav in nav_options else 1,
+            label_visibility="collapsed",
+            key="top_quick_nav"
+        )
+        if top_nav_choice != st.session_state.selected_nav:
+            st.session_state.selected_nav = top_nav_choice
+            st.rerun()
+
+selected_nav = st.session_state.selected_nav
+
 
 # ==============================================================================
 # PAGE 1: DASHBOARD
@@ -656,6 +774,7 @@ elif selected_nav == "Image Analysis":
             source_name = uploaded_file.name
 
     elif input_source == "Camera":
+        st.caption("📱 **Mobile Tip:** Tap the camera frame below to capture photos directly with your mobile camera.")
         camera_file = st.camera_input("Capture an image with your camera")
         if camera_file is not None:
             raw_image_bytes = camera_file.getvalue()
@@ -733,7 +852,7 @@ elif selected_nav == "Image Analysis":
 
             st.markdown("---")
 
-            # Side-by-Side Visual Comparison
+            # Visual Comparison (Responsive Side-by-Side on Desktop, Full-Width Stack on Mobile)
             col_img1, col_img2 = st.columns(2)
             with col_img1:
                 st.markdown("##### Original Image")
@@ -812,7 +931,7 @@ elif selected_nav == "Image Analysis":
             vision_agent = VisionSceneAgent(llm_provider=llm_inst)
             qa_agent = VisualQAAgent(llm_provider=llm_inst)
 
-            if st.button("✨ Generate AI Insight", type="secondary"):
+            if st.button("✨ Generate AI Insight", type="secondary", use_container_width=True):
                 with st.spinner("Generating intelligent visual insight..."):
                     desc, latency, grounded, warnings = vision_agent.describe_scene(
                         detection_result=detection_res,
@@ -842,13 +961,13 @@ elif selected_nav == "Image Analysis":
             st.caption("Suggested inquiries:")
             sq_col1, sq_col2, sq_col3, sq_col4 = st.columns(4)
             chosen_q = ""
-            if sq_col1.button("How many objects are visible?"):
+            if sq_col1.button("How many objects are visible?", use_container_width=True):
                 chosen_q = "How many objects are visible?"
-            if sq_col2.button("Which object has highest certainty?"):
+            if sq_col2.button("Which object has highest certainty?", use_container_width=True):
                 chosen_q = "Which object has the highest confidence score?"
-            if sq_col3.button("Summarize this image."):
+            if sq_col3.button("Summarize this image.", use_container_width=True):
                 chosen_q = "Summarize the objects and layout of this image."
-            if sq_col4.button("Are there vehicles or people?"):
+            if sq_col4.button("Are there vehicles or people?", use_container_width=True):
                 chosen_q = "Are there vehicles or people detected in the image?"
 
             user_query = st.text_input(
@@ -857,7 +976,7 @@ elif selected_nav == "Image Analysis":
                 placeholder="e.g. How many people are in the scene? Where are they positioned?",
             )
 
-            if st.button("Ask AI", type="primary"):
+            if st.button("Ask AI", type="primary", use_container_width=True):
                 if user_query.strip():
                     with st.spinner("Analyzing inquiry against verified detection context..."):
                         qa_res: QAResponse = qa_agent.answer_question(
@@ -930,7 +1049,7 @@ elif selected_nav == "AI Assistant":
             )
 
         user_chat_input = st.text_input("Enter your question:", placeholder="e.g. What is the spatial relationship between the detected objects?")
-        if st.button("Send Inquiry", type="primary"):
+        if st.button("Send Inquiry", type="primary", use_container_width=True):
             if user_chat_input.strip():
                 with st.spinner("Formulating grounded response..."):
                     qa_res = qa_agent.answer_question(
@@ -976,7 +1095,7 @@ elif selected_nav == "Analysis History":
                     else:
                         st.caption("No AI summary generated for this analysis.")
 
-                    if st.button(f"Load Analysis #{item['id']} into Active Workspace", key=f"btn_load_{item['id']}"):
+                    if st.button(f"Load Analysis #{item['id']} into Active Workspace", key=f"btn_load_{item['id']}", use_container_width=True):
                         st.session_state.current_image_bytes = None
                         st.session_state.current_detection = item["detection_res"]
                         st.session_state.current_annotated_rgb = item["annotated_rgb"]
@@ -1014,7 +1133,7 @@ elif selected_nav == "Detection Insights":
             st.markdown("##### Cumulative Object Category Distribution")
             if all_class_counts:
                 df_dist = pd.DataFrame(list(all_class_counts.items()), columns=["Category", "Total Count"]).sort_values(by="Total Count", ascending=False)
-                st.bar_chart(df_dist.set_index("Category"), color="#2563eb")
+                st.bar_chart(df_dist.set_index("Category"), color="#2563eb", use_container_width=True)
             else:
                 st.write("No objects found to aggregate.")
 
@@ -1025,7 +1144,7 @@ elif selected_nav == "Detection Insights":
                 {"Certainty Tier": "Medium (60-79%)", "Count": total_med},
                 {"Certainty Tier": "Moderate (40-59%)", "Count": total_low},
             ])
-            st.bar_chart(tier_df.set_index("Certainty Tier"), color="#059669")
+            st.bar_chart(tier_df.set_index("Certainty Tier"), color="#059669", use_container_width=True)
     else:
         st.info("No analysis data available yet. Process images to generate aggregated category insights.")
 
@@ -1051,7 +1170,7 @@ elif selected_nav == "AI Performance":
     with col_perf_top:
         st.markdown(f"**Benchmark Dataset:** `{len(test_files)} verified test images` | **Ground Truth Available:** `{'Yes' if ground_truth_data else 'No'}`")
     with col_perf_btn:
-        run_eval_clicked = st.button("Run Benchmark Evaluation", type="primary")
+        run_eval_clicked = st.button("Run Benchmark Evaluation", type="primary", use_container_width=True)
 
     if run_eval_clicked or st.session_state.eval_report is not None:
         if run_eval_clicked:
@@ -1086,7 +1205,7 @@ elif selected_nav == "AI Performance":
         with st.expander("Technical Metrics & Breakdown", expanded=False):
             st.markdown("##### Certainty Distribution")
             conf_df = pd.DataFrame(list(report["confidence_distribution"].items()), columns=["Certainty Tier", "Count"])
-            st.bar_chart(conf_df.set_index("Certainty Tier"), color="#2563eb")
+            st.bar_chart(conf_df.set_index("Certainty Tier"), color="#2563eb", use_container_width=True)
 
             st.markdown("##### Per-Image Audit Details")
             st.dataframe(pd.DataFrame(report["per_image_details"]), use_container_width=True)
@@ -1122,6 +1241,7 @@ elif selected_nav == "Reports":
             data=csv,
             file_name=f"vision_analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv",
+            use_container_width=True,
         )
     else:
         st.info("No report data generated yet. Complete image analyses to generate audit reports.")
@@ -1154,7 +1274,7 @@ elif selected_nav == "Account Settings":
             curr_pwd = st.text_input("Current Password", type="password")
             new_pwd = st.text_input("New Password", type="password", placeholder="At least 8 characters")
             confirm_new_pwd = st.text_input("Confirm New Password", type="password")
-            submit_change_pwd = st.form_submit_button("Update Password", type="primary")
+            submit_change_pwd = st.form_submit_button("Update Password", type="primary", use_container_width=True)
 
         if submit_change_pwd:
             ok, err_msg = auth_service.change_password(
@@ -1213,6 +1333,11 @@ elif selected_nav == "Help & Support":
     - Supported formats: **JPEG, PNG, WebP**.
     - Maximum file size: **15 MB**.
     - Optimal resolution: **720p to 4K** for best accuracy and balanced processing speed.
+
+    #### Mobile Usage Tips
+    - On smartphones and tablets, you can use the **Camera** option to take live photos on-the-go.
+    - Use the top **Active View** quick navigator or tap the menu icon to switch between sections swiftly.
+    - All charts and tables automatically adapt and scroll cleanly on touch screens.
 
     #### Need Assistance?
     For enterprise technical support, custom model integrations, or dedicated cloud deployments, contact your organization's AI Platform Administrator.
