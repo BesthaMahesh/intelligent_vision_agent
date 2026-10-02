@@ -315,10 +315,6 @@ if "auth_mode" not in st.session_state:
     st.session_state.auth_mode = "login"  # "login", "register", "register_success", "forgot_password"
 if "selected_nav" not in st.session_state:
     st.session_state.selected_nav = "Dashboard"
-if "sidebar_nav" not in st.session_state:
-    st.session_state.sidebar_nav = st.session_state.selected_nav
-if "top_quick_nav" not in st.session_state:
-    st.session_state.top_quick_nav = st.session_state.selected_nav
 if "active_user_query" not in st.session_state:
     st.session_state.active_user_query = ""
 if "history" not in st.session_state:
@@ -340,23 +336,9 @@ if "eval_report" not in st.session_state:
 
 
 def set_page(page_name: str):
-    """Safely transitions active view across all synced navigation controls."""
+    """Safely transitions active view across navigation controls."""
     if page_name in nav_options:
         st.session_state.selected_nav = page_name
-        st.session_state.sidebar_nav = page_name
-        st.session_state.top_quick_nav = page_name
-
-
-def on_sidebar_nav_change():
-    """Callback triggered when sidebar navigation option changes."""
-    st.session_state.selected_nav = st.session_state.sidebar_nav
-    st.session_state.top_quick_nav = st.session_state.sidebar_nav
-
-
-def on_top_nav_change():
-    """Callback triggered when top quick navigation selectbox changes."""
-    st.session_state.selected_nav = st.session_state.top_quick_nav
-    st.session_state.sidebar_nav = st.session_state.top_quick_nav
 
 
 # Check Session Timeout
@@ -546,17 +528,16 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-section">WORKSPACE</div>', unsafe_allow_html=True)
     
-    # Synchronize sidebar widget key before rendering
-    if st.session_state.get("sidebar_nav") != st.session_state.selected_nav:
-        st.session_state.sidebar_nav = st.session_state.selected_nav
-
-    st.radio(
+    current_sidebar_idx = nav_options.index(st.session_state.selected_nav) if st.session_state.selected_nav in nav_options else 0
+    selected_sidebar_nav = st.radio(
         "Navigation",
         options=nav_options,
-        key="sidebar_nav",
-        on_change=on_sidebar_nav_change,
+        index=current_sidebar_idx,
         label_visibility="collapsed"
     )
+    if selected_sidebar_nav != st.session_state.selected_nav:
+        st.session_state.selected_nav = selected_sidebar_nav
+        st.rerun()
 
     st.markdown('<div class="sidebar-section">PREFERENCES</div>', unsafe_allow_html=True)
     
@@ -685,17 +666,16 @@ with st.container():
     with col_mob_label:
         st.markdown(f'<div style="display: flex; align-items: center; height: 100%; font-size: 0.85rem; font-weight: 700; color: #2563eb; padding-top: 6px;"><span class="status-pill status-accent">📍 Active View:</span></div>', unsafe_allow_html=True)
     with col_mob_nav:
-        # Synchronize top_quick_nav key before rendering
-        if st.session_state.get("top_quick_nav") != st.session_state.selected_nav:
-            st.session_state.top_quick_nav = st.session_state.selected_nav
-
-        st.selectbox(
+        current_top_idx = nav_options.index(st.session_state.selected_nav) if st.session_state.selected_nav in nav_options else 0
+        top_nav_choice = st.selectbox(
             "Quick Navigation",
             options=nav_options,
-            key="top_quick_nav",
-            on_change=on_top_nav_change,
+            index=current_top_idx,
             label_visibility="collapsed"
         )
+        if top_nav_choice != st.session_state.selected_nav:
+            st.session_state.selected_nav = top_nav_choice
+            st.rerun()
 
 selected_nav = st.session_state.selected_nav
 
