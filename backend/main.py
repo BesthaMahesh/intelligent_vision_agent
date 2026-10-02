@@ -1,22 +1,25 @@
+import os
 import io
 import time
 import base64
+import json
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 from PIL import Image
 import numpy as np
 
 from backend.config.settings import get_settings
 from backend.auth.authentication import AuthService
 from backend.detection.detector import ObjectDetector
-from backend.agents.qa_agent import QAAgent
-from backend.evaluation.evaluator import BenchmarkEvaluator
-from backend.vision.image_utils import draw_bounding_boxes
+from backend.agents.qa_agent import VisualQAAgent
+from backend.agents.vision_agent import VisionSceneAgent
+from backend.evaluation.evaluator import ModelEvaluator
 from backend.observability.logger import get_logger
+from backend.schemas.detection import DetectionResult, DetectionObject, DetectionSummary, InferenceMetrics, ConfidenceLevel
 
 logger = get_logger("fastapi_app")
 settings = get_settings()
@@ -38,24 +41,21 @@ app.add_middleware(
 
 # Initialize Services
 auth_service = AuthService()
-detector_cache: Dict[str, ObjectDetector] = {}
-
-def get_detector(model_name: str = "yolo11n.pt") -> ObjectDetector:
-    if model_name not in detector_cache:
-        detector_cache[model_name] = ObjectDetector(model_name=model_name)
-    return detector_cache[model_name]
+detector = ObjectDetector(settings=settings)
+qa_agent = VisualQAAgent(settings=settings)
+scene_agent = VisionSceneAgent(settings=settings)
 
 # Pydantic Schemas
 class RegisterSchema(BaseModel):
     full_name: str = Field(..., min_length=2)
-    email: EmailStr
+    email: str = Field(..., min_length=3)
     password: str = Field(..., min_length=6)
     organization: Optional[str] = "Default Org"
     role: Optional[str] = "Analyst"
 
 class LoginSchema(BaseModel):
-    email: EmailStr
-    password: str
+    email: str = Field(..., min_length=3)
+    password: str = Field(..., min_length=1)
 
 class ChatMessage(BaseModel):
     role: str
@@ -64,13 +64,14 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     query: str
     detections: Optional[List[Dict[str, Any]]] = None
+    image_base64: Optional[str] = None
     history: Optional[List[ChatMessage]] = None
     provider: Optional[str] = None
     model: Optional[str] = None
     temperature: Optional[float] = 0.2
 
 class EvaluationRequest(BaseModel):
-    iou_threshold: float = 0.50
+    iou_threshold: float = 0.45
     confidence_threshold: float = 0.35
 
 # ---------------------------------------------------------------------------
@@ -83,9 +84,9 @@ def health_check():
         "status": "healthy",
         "service": "Intelligent Vision API",
         "version": "1.0.0",
-        "groq_configured": bool(settings.groq_api_key),
-        "openai_configured": bool(settings.openai_api_key),
-        "anthropic_configured": bool(settings.anthropic_api_key),
+        "groq_configured": bool(settings.GROQ_API_KEY),
+        "openai_configured": bool(settings.OPENAI_API_KEY),
+        "anthropic_configured": bool(settings.ANTHROPIC_API_KEY),
     }
 
 # ---------------------------------------------------------------------------
@@ -142,33 +143,30 @@ async def detect_objects(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid image file: {str(e)}")
 
-    detector = get_detector(model_name)
     start_time = time.perf_counter()
-    detection_response = detector.detect(
-        image=image,
-        conf_threshold=confidence_threshold,
-        iou_threshold=iou_threshold
+    det_result, annotated_np = detector.detect(
+        image_input=image,
+        model_name=model_name,
+        confidence_threshold=confidence_threshold,
+        iou_threshold=iou_threshold,
+        annotate=return_annotated_image
     )
     total_latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
     response_data: Dict[str, Any] = {
-        "total_detected": detection_response.total_count,
-        "class_counts": detection_response.class_counts,
-        "detections": [d.model_dump() for d in detection_response.detections],
-        "latency_ms": detection_response.latency_ms,
+        "total_detected": det_result.summary.total_objects,
+        "class_counts": det_result.summary.class_counts,
+        "detections": [obj.model_dump() for obj in det_result.objects],
+        "latency_ms": det_result.metrics.total_vision_ms,
         "total_processing_ms": total_latency_ms,
-        "image_size": [image.width, image.height]
+        "image_size": [det_result.metrics.image_width, det_result.metrics.image_height]
     }
 
-    if return_annotated_image:
-        annotated = draw_bounding_boxes(
-            image=image,
-            detections=detection_response.detections,
-            show_confidence=True,
-            show_labels=True
-        )
+    if return_annotated_image and annotated_np is not None:
+        # Convert RGB numpy back to JPEG base64
+        annotated_pil = Image.fromarray(annotated_np)
         buffered = io.BytesIO()
-        annotated.save(buffered, format="JPEG", quality=90)
+        annotated_pil.save(buffered, format="JPEG", quality=90)
         img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
         response_data["annotated_image_base64"] = img_str
 
@@ -179,26 +177,49 @@ async def detect_objects(
 # ---------------------------------------------------------------------------
 @app.post("/api/chat")
 def chat_with_agent(req: ChatRequest):
-    agent = QAAgent()
+    # Reconstruct DetectionResult from raw dicts if provided
+    raw_objs = req.detections or []
+    objects = []
+    class_counts = {}
     
-    # Map chat history format
-    history_tuples = []
-    if req.history:
-        for msg in req.history:
-            history_tuples.append({"role": msg.role, "content": msg.content})
+    for idx, d in enumerate(raw_objs):
+        label = d.get("object", d.get("label", "unknown"))
+        conf = float(d.get("confidence", 0.0))
+        bbox = d.get("bbox", [0, 0, 0, 0])
+        objects.append(DetectionObject(
+            object=label,
+            class_id=d.get("class_id", idx),
+            confidence=conf,
+            bbox=bbox,
+            confidence_level=ConfidenceLevel.HIGH if conf >= 0.7 else (ConfidenceLevel.MEDIUM if conf >= 0.4 else ConfidenceLevel.LOW)
+        ))
+        class_counts[label] = class_counts.get(label, 0) + 1
 
-    start_time = time.perf_counter()
+    summary = DetectionSummary(
+        total_objects=len(objects),
+        unique_classes_count=len(class_counts),
+        unique_classes=list(class_counts.keys()),
+        class_counts=class_counts,
+        average_confidence=round(float(np.mean([o.confidence for o in objects])), 3) if objects else 0.0
+    )
+
+    det_result = DetectionResult(
+        objects=objects,
+        summary=summary,
+        metrics=InferenceMetrics(),
+        model_name="yolo11n.pt"
+    )
+
     try:
-        response_text = agent.ask(
-            query=req.query,
-            detections=req.detections or [],
-            chat_history=history_tuples
+        qa_resp = qa_agent.answer_question(
+            question=req.query,
+            detection_result=det_result
         )
-        latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
         return {
             "success": True,
-            "response": response_text,
-            "latency_ms": latency_ms
+            "response": qa_resp.answer,
+            "is_grounded": qa_resp.is_grounded,
+            "latency_ms": qa_resp.latency_ms
         }
     except Exception as e:
         logger.error(f"Chat error: {str(e)}")
@@ -212,13 +233,27 @@ def chat_with_agent(req: ChatRequest):
 # ---------------------------------------------------------------------------
 @app.post("/api/evaluate")
 def run_evaluation(req: EvaluationRequest):
-    evaluator = BenchmarkEvaluator()
-    detector = get_detector("yolo11n.pt")
+    evaluator = ModelEvaluator(detector=detector)
     
+    # Locate benchmark sample images & ground truth
+    sample_dir = Path("data/sample_images")
+    gt_file = Path("data/ground_truth.json")
+
+    image_paths = list(sample_dir.glob("*.jpg")) + list(sample_dir.glob("*.png"))
+    ground_truth_map = None
+
+    if gt_file.exists():
+        try:
+            with open(gt_file, "r") as f:
+                ground_truth_map = json.load(f)
+        except Exception as e:
+            logger.warning(f"Could not load ground truth file: {e}")
+
     try:
-        report = evaluator.run(
-            detector=detector,
-            conf_threshold=req.confidence_threshold,
+        report = evaluator.evaluate_dataset(
+            image_paths=image_paths,
+            ground_truth_map=ground_truth_map,
+            confidence_threshold=req.confidence_threshold,
             iou_threshold=req.iou_threshold
         )
         return {
@@ -234,6 +269,5 @@ def run_evaluation(req: EvaluationRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    import os
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
