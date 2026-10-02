@@ -27,9 +27,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def validate_password_strength(password: str) -> Tuple[bool, List[str]]:
     """
-    Validate password requirements: minimum 8 characters.
+    Validate password requirements: minimum 6 characters.
     """
     errors = []
-    if not password or len(password) < 8:
-        errors.append("Password must contain at least 8 characters.")
+    if not password or len(password) < 6:
+        errors.append("Password must contain at least 6 characters.")
     return len(errors) == 0, errors

@@ -129,7 +129,7 @@ class AuthService:
         full_name: str,
         email: str,
         password: str,
-        confirm_password: str,
+        confirm_password: Optional[str] = None,
         organization: Optional[str] = "Enterprise",
         role: str = "Business User",
     ) -> Tuple[bool, Optional[User], Optional[str]]:
@@ -152,7 +152,7 @@ class AuthService:
         if not password:
             return False, None, "Please enter a password."
 
-        if password != confirm_password:
+        if confirm_password is not None and password != confirm_password:
             return False, None, "Passwords do not match."
 
         is_valid_pwd, pwd_errs = validate_password_strength(password)

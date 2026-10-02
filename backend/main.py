@@ -94,37 +94,55 @@ def health_check():
 # ---------------------------------------------------------------------------
 @app.post("/api/auth/register")
 def register_user(req: RegisterSchema):
-    success, user, error = auth_service.register_user(
-        email=req.email,
-        password=req.password,
-        full_name=req.full_name,
-        organization=req.organization or "Enterprise Org",
-        role=req.role or "Analyst"
-    )
-    if not success or not user:
+    try:
+        success, user, error = auth_service.register_user(
+            full_name=req.full_name,
+            email=req.email,
+            password=req.password,
+            organization=req.organization or "Enterprise Org",
+            role=req.role or "Analyst"
+        )
+        if not success or not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error or "Registration failed."
+            )
+        return {
+            "success": True,
+            "message": "User registered successfully.",
+            "user": user.to_dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Registration error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error or "Registration failed."
+            detail=f"Registration failed: {str(e)}"
         )
-    return {
-        "success": True,
-        "message": "User registered successfully.",
-        "user": user.to_dict()
-    }
 
 @app.post("/api/auth/login")
 def login_user(req: LoginSchema):
-    success, user, error = auth_service.authenticate_user(req.email, req.password)
-    if not success or not user:
+    try:
+        success, user, error = auth_service.authenticate_user(req.email, req.password)
+        if not success or not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=error or "Invalid email or password."
+            )
+        return {
+            "success": True,
+            "message": "Authentication successful.",
+            "user": user.to_dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=error or "Invalid email or password."
+            detail=f"Authentication failed: {str(e)}"
         )
-    return {
-        "success": True,
-        "message": "Authentication successful.",
-        "user": user.to_dict()
-    }
 
 # ---------------------------------------------------------------------------
 # Object Detection Endpoint
